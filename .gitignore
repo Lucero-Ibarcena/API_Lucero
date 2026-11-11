@@ -1,0 +1,11 @@
+# Dependencias de Node.js
+node_modules/
+
+# Variables de entorno
+.env
+
+# Archivos de logs
+*.log
+
+# Archivos del sistema
+.DS_Store
