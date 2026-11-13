@@ -44,6 +44,20 @@
       "vacunado": true,
       "castrado": false,
       "observaciones": "Es un gato co manchas negras, y una mancha grande en la cara (naiz y boca) café."
+    },
+    {
+      "id": 6,
+      "nombre": "Olivia",
+      "email": "olivia@gmail.com",
+      "telefono": "1123456789",
+      "direccion": "Mendoza"
+    },
+    {
+      "id": 7,
+      "nombre": "Analia",
+      "email": "analia@gmail.com",
+      "telefono": "1123456789",
+      "direccion": "San Lius"
     }
   ],
   "mascotas": [
@@ -119,6 +133,20 @@
       "vacunado": true,
       "castrado": false,
       "observaciones": "Es un gato co manchas negras, y una mancha grande en la cara (nariz y boca) café."
+    },
+    {
+      "id": 6,
+      "nombre": "Linda",
+      "especie": "Loro",
+      "raza": "...",
+      "edad": 3,
+      "sexo": "Hembra",
+      "color": "Verde, rojo, amarillo",
+      "peso": 2,
+      "usuarioId": 6,
+      "vacunado": true,
+      "castrado": false,
+      "observaciones": "Mayormente verde, sus plumas son verde, amarillas y rojas (orden descendene), pico marron grisaceo"
     }
   ]
 }

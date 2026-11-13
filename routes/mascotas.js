@@ -108,7 +108,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(mascota);
 });
 
-// PUT /mascotas/1: cambia solo los campos que envíes.
+// PUT /mascotas/1: cambia solo los campos que envíes.  NO TOCAR
 router.put('/:id', async (req, res) => {
     const mascota = buscarPorId(datos.mascotas, req.params.id);
     if (!mascota) return res.status(404).json({ mensaje: 'Mascota no encontrada.' });
@@ -126,7 +126,7 @@ router.put('/:id', async (req, res) => {
     res.json(mascota);
 });
 
-// DELETE /mascotas/1: elimina una mascota por ID.
+// DELETE /mascotas/1: elimina una mascota por ID.  NO TOCAR
 router.delete('/:id', async (req, res) => {
     const mascota = buscarPorId(datos.mascotas, req.params.id);
     if (!mascota) return res.status(404).json({ mensaje: 'Mascota no encontrada.' });

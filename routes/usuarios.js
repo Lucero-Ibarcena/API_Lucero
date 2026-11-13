@@ -16,10 +16,10 @@ function coincide(valor, filtro) {
     return String(valor ?? '').toLowerCase().includes(String(filtro ?? '').toLowerCase());
 }
 
-// GET /usuarios?nombre=Ana: lista todos o busca por nombre, email o teléfono.  DEBERIA APARECER DATOS DEL DUEÑO Y SU/S MASCOTA/S REGISTRADAS
+// GET /usuarios?nombre=Ana: lista todos o busca por nombre, email o teléfono.  DEBERIA APARECER DATOS DEL DUEÑO Y SU/S MASCOTA/S REGISTRADAS  (como 'nombre', 'especie', 'raza', 'edad', 'sexo','color', 'tamaño')
 router.get('/', (req, res) => {
     const usuarios = datos.usuarios.filter((usuario) =>
-        ['nombre', 'email', 'telefono', 'nombre', 'especie', 'raza', 'edad', 'sexo','color', 'tamaño'].every((campo) =>
+        ['nombre', 'email', 'telefono'].every((campo) =>
             req.query[campo] === undefined || coincide(usuario[campo], req.query[campo]),
         ),
     );
@@ -68,10 +68,11 @@ router.put('/:id', async (req, res) => {
     res.json(usuario);
 });
 
-// DELETE /usuarios/1: protege mascotas que todavía pertenecen a ese usuario.  NO TOCAR
+// DELETE /usuarios/1: protege mascotas que todavía pertenecen a ese usuario.  NO TOCAR (EXCEPTO POR ALGUNOS DE ALGUNOS DATOS ESPECIFICOS)
 router.delete('/:id', async (req, res) => {
     const usuario = buscarPorId(datos.usuarios, req.params.id);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+    //REVISAR ESTO, ESTO NO PERMITE ELIMINARLO YA QUE ESTA REGISTRADO PERO SI SE QUIERE SOLO UNA PARE ESPECIFICA COMO AREGLAR ESO
     if (datos.mascotas.some((mascota) => Number(mascota.usuarioId) === usuario.id)) {
         return res.status(409).json({ mensaje: 'El usuario tiene mascotas registradas.' });
     }
