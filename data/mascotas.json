@@ -1,2 +1,69 @@
-
-
+{
+  "usuarios": [
+    {
+      "id": 1,
+      "nombre": "Ana",
+      "telefono": "1123456789",
+      "direccion": "Buenos Aires",
+      "email": "ana@gmail.com"
+    },
+    {
+      "id": 2,
+      "nombre": "Luis",
+      "telefono": "1123456789",
+      "direccion": "Buenos Aires",
+      "email": "luis@gmail.com"
+    },
+    {
+      "id": 3,
+      "nombre": "Carla",
+      "telefono": "1123456789",
+      "direccion": "CABA",
+      "email": "carla@gmail.com"
+    }
+  ],
+  "mascotas": [
+    {
+      "id": 1,
+      "nombre": "Luna",
+      "especie": "Perro",
+      "raza": "Caniche",
+      "edad": 3,
+      "sexo": "Hembra",
+      "color": "Blanco",
+      "peso": 6.5,
+      "usuarioId": 1,
+      "vacunado": true,
+      "castrado": false,
+      "observaciones": "Tiene una pequeña mancha en la pata derecha"
+    },
+    {
+      "id": 2,
+      "nombre": "Michi",
+      "especie": "Gato",
+      "raza": "Siames",
+      "edad": 2,
+      "sexo": "Macho",
+      "color": "Café",
+      "peso": 3,
+      "usuarioId": 2,
+      "vacunado": true,
+      "castrado": false,
+      "observaciones": "Tiene una pequeña mancha en forma de corazon en el pecho"
+    },
+    {
+      "id": 3,
+      "nombre": "Rocky",
+      "especie": "Perro",
+      "raza": "Labrador",
+      "edad": 5,
+      "sexo": "Macho",
+      "color": "Blanco",
+      "peso": 7.8,
+      "usuarioId": 3,
+      "vacunado": true,
+      "castrado": false,
+      "observaciones": "Tiene un pequeño corte en la oreja izquierda"
+    }
+  ]
+}

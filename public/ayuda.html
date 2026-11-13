@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ayuda - API de mascotas</title>
+  <style>
+    body { max-width: 900px; margin: 30px auto; padding: 0 18px; color: #1d2939; font: 16px/1.55 Arial, sans-serif; background: #f5f7fa; }
+    section { margin: 18px 0; padding: 20px; background: white; border: 1px solid #dce2ea; border-radius: 10px; }
+    h1, h2 { color: #17436b; }
+    code, pre { padding: 3px 6px; background: #edf1f5; border-radius: 4px; }
+    pre { overflow-x: auto; padding: 14px; }
+    .ruta { padding: 8px 0; border-top: 1px solid #e5e9ef; }
+    .etiqueta { display: inline-block; min-width: 62px; padding: 2px 5px; color: white; text-align: center; font-weight: bold; border-radius: 4px; }
+    .get { background: #257447; } .post { background: #1768a5; } .put { background: #936000; } .delete { background: #aa3737; }
+    @media (max-width: 600px) { body { margin-top: 14px; } section { padding: 14px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>API de registro de mascotas</h1>
+    <p>Guía para usar la API. Puedes registrar perros, gatos, aves, reptiles y mascotas de cualquier otra especie.</p>
+    <p>Los datos quedan guardados aunque cierres y vuelvas a iniciar el servidor.</p>
+  </header>
+
+  <section>
+    <h2>Qué significan las etiquetas</h2>
+    <p><strong>GET</strong> = consultar · <strong>POST</strong> = crear · <strong>PUT</strong> = actualizar · <strong>DELETE</strong> = eliminar.</p>
+    <p>El número de la ruta es el <code>id</code>. Por ejemplo, <code>/mascotas/2</code> consulta la mascota con ID 2.</p>
+  </section>
+
+  <section>
+    <h2>Etiqueta: Usuarios y dueños</h2>
+    <div class="ruta"><span class="etiqueta get">GET</span> <code>/usuarios</code> — ver todos los usuarios.</div>
+    <div class="ruta"><span class="etiqueta get">GET</span> <code>/usuarios/1</code> — ver un usuario por ID.</div>
+    <div class="ruta"><span class="etiqueta post">POST</span> <code>/usuarios</code> — crear un usuario.</div>
+    <div class="ruta"><span class="etiqueta put">PUT</span> <code>/usuarios/1</code> — actualizar campos de un usuario.</div>
+    <div class="ruta"><span class="etiqueta delete">DELETE</span> <code>/usuarios/1</code> — eliminar un usuario sin mascotas asociadas.</div>
+    <p>Ejemplo para crear un usuario (envíalo como JSON):</p>
+    <pre><code>{
+  "nombre": "Ana Pérez",
+  "email": "ana@example.com",
+  "telefono": "1122334455"
+}</code></pre>
+  </section>
+
+  <section>
+    <h2>Etiqueta: Mascotas</h2>
+    <div class="ruta"><span class="etiqueta get">GET</span> <code>/mascotas</code> — ver todas las mascotas.</div>
+    <div class="ruta"><span class="etiqueta get">GET</span> <code>/mascotas/1</code> — ver una mascota por ID.</div>
+    <div class="ruta"><span class="etiqueta post">POST</span> <code>/mascotas</code> — registrar una mascota.</div>
+    <div class="ruta"><span class="etiqueta put">PUT</span> <code>/mascotas/1</code> — actualizar campos de una mascota.</div>
+    <div class="ruta"><span class="etiqueta delete">DELETE</span> <code>/mascotas/1</code> — eliminar una mascota.</div>
+    <p><strong>Búsqueda recomendada:</strong> agrega filtros a <code>/mascotas</code>. Puedes combinar <code>nombre</code>, <code>especie</code>, <code>raza</code>, <code>edad</code>, <code>sexo</code>, <code>color</code>, <code>tamano</code> y <code>usuarioId</code>.</p>
+    <p>Por ejemplo: <code>/mascotas?especie=Perro</code> o <code>/mascotas?especie=Ave&amp;color=Verde</code>.</p>
+    <p>También siguen disponibles las rutas de búsqueda anteriores:</p>
+    <ul>
+      <li><code>/mascotas/nombremascota/Luna</code></li>
+      <li><code>/mascotas/especie/Perro</code></li>
+      <li><code>/mascotas/raza/Caniche</code></li>
+      <li><code>/mascotas/edad/3</code></li>
+      <li><code>/mascotas/sexo/Hembra</code></li>
+      <li><code>/mascotas/color/Blanco</code></li>
+      <li><code>/mascotas/tamaño/pequeño</code></li>
+      <li><code>/mascotas/dueño/Ana</code></li>
+    </ul>
+    <p>Los campos obligatorios son <code>nombre</code> y <code>especie</code>. La especie es texto libre, así que no hay una lista cerrada de animales.</p>
+  </section>
+
+  <section>
+    <h2>Crear una mascota paso a paso</h2>
+    <ol>
+      <li>Crea primero el dueño con <code>POST /usuarios</code>.</li>
+      <li>Copia el <code>id</code> que devuelve la respuesta.</li>
+      <li>Envía ese número como <code>usuarioId</code> al crear la mascota con <code>POST /mascotas</code>.</li>
+    </ol>
+    <p>Ejemplo de mascota:</p>
+    <pre><code>{
+  "nombre": "Kiwi",
+  "especie": "Ave",
+  "raza": "Cotorra",
+  "edad": 1,
+  "usuarioId": 1
+}</code></pre>
+    <p>Puedes probar las solicitudes con Postman o Thunder Client. Para POST y PUT, elige Body → JSON y pega los datos.</p>
+  </section>
+</body>
+</html>

@@ -2,13 +2,13 @@
   "type": "module",
   "name": "api_lucero",
   "version": "1.0.0",
-  "description": "",
+  "description": "API REST para administrar usuarios y registrar mascotas de cualquier especie",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "keywords": [],
+  "keywords": ["api", "mascotas", "usuarios", "crud"],
   "author": "",
   "license": "ISC",
   "dependencies": {
