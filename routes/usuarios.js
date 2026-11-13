@@ -16,24 +16,26 @@ function coincide(valor, filtro) {
     return String(valor ?? '').toLowerCase().includes(String(filtro ?? '').toLowerCase());
 }
 
-// GET /usuarios?nombre=Ana: lista todos o busca por nombre, email o teléfono.
+// GET /usuarios?nombre=Ana: lista todos o busca por nombre, email o teléfono.  DEBERIA APARECER DATOS DEL DUEÑO Y SU/S MASCOTA/S REGISTRADAS
 router.get('/', (req, res) => {
     const usuarios = datos.usuarios.filter((usuario) =>
-        ['nombre', 'email', 'telefono'].every((campo) =>
+        ['nombre', 'email', 'telefono', 'nombre', 'especie', 'raza', 'edad', 'sexo','color', 'tamaño'].every((campo) =>
             req.query[campo] === undefined || coincide(usuario[campo], req.query[campo]),
         ),
     );
     res.json(usuarios);
 });
 
-// GET /usuarios/1: busca un usuario por su ID.
+// GET /usuarios/1: busca un usuario por su ID.  DEBERIA APARECER DATOS DEL DUEÑO Y SU/S MASCOTA/S REGISTRADAS
 router.get('/:id', (req, res) => {
     const usuario = buscarPorId(datos.usuarios, req.params.id);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
     res.json(usuario);
 });
 
-// POST /usuarios: crea un dueño o responsable.
+// POST /usuarios: crea un dueño o responsable.  DEBERIA PODER REGISTRAR DATOS DEL DUEÑO Y LOS DE SU/S MASCOTA/S    A ESTO SE LE PUEDE PONER DIRECTAMENTE TODOS
+//                                                                                                                  LOS DATOS Y QUEDARIAN REGISTRADOS EN EL
+//                                                                                                                  USUARIO, PERO NO EN MASCOTAS
 router.post('/', async (req, res) => {
     const { nombre, email = '', telefono = '', direccion = '' } = req.body ?? {};
     if (typeof nombre !== 'string' || !nombre.trim()) {
@@ -52,7 +54,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(usuario);
 });
 
-// PUT /usuarios/1: actualiza solo los campos que envíes.
+// PUT /usuarios/1: actualiza solo los campos que envíes. NO TOCAR
 router.put('/:id', async (req, res) => {
     const usuario = buscarPorId(datos.usuarios, req.params.id);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
@@ -66,7 +68,7 @@ router.put('/:id', async (req, res) => {
     res.json(usuario);
 });
 
-// DELETE /usuarios/1: protege mascotas que todavía pertenecen a ese usuario.
+// DELETE /usuarios/1: protege mascotas que todavía pertenecen a ese usuario.  NO TOCAR
 router.delete('/:id', async (req, res) => {
     const usuario = buscarPorId(datos.usuarios, req.params.id);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });

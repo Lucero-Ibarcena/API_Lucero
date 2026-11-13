@@ -17,6 +17,7 @@ const nombresDeCampo = {
     dueno: 'dueño',
 };
 
+//ESTO ES PARA PODER ACEPTAR "CUALQUIER TIPO DE CARACTERES" MIENTRAS CUMPLA LO QUE DEBERIA.  NO TOCAR
 function normalizar(valor) {
     return String(valor ?? '')
         .normalize('NFD')
@@ -79,7 +80,7 @@ router.get('/:id', (req, res) => {
     res.json(mascota);
 });
 
-// POST /mascotas: registra una mascota; especie es texto libre.
+// POST /mascotas: registra una mascota; especie es texto libre.  DEBERIA PODER REGISTRAR DATOS DEL DUEÑO Y LOS DE SU/S MASCOTA/S
 router.post('/', async (req, res) => {
     const cuerpo = req.body;
     if (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo)) {
@@ -94,6 +95,8 @@ router.post('/', async (req, res) => {
     if (cuerpo.usuarioId !== undefined && !buscarPorId(datos.usuarios, cuerpo.usuarioId)) {
         return res.status(400).json({ mensaje: 'usuarioId debe ser el ID de un usuario existente.' });
     }
+
+
 
     const mascota = {
         ...cuerpo,

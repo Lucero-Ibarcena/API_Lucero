@@ -20,6 +20,30 @@
       "telefono": "1123456789",
       "direccion": "CABA",
       "email": "carla@gmail.com"
+    },
+    {
+      "id": 4,
+      "nombre": "Fernando",
+      "email": "fernando@gmail.com",
+      "telefono": "1123456789",
+      "direccion": "CABA"
+    },
+    {
+      "id": 5,
+      "nombre": "Analia",
+      "email": "analia@gmail.com",
+      "telefono": "1123456789",
+      "direccion": "San Lius",
+      "especie": "Gato",
+      "raza": "Mestizo",
+      "edad": 5,
+      "sexo": "Macho",
+      "color": "Blanco y negro",
+      "peso": 4,
+      "usuarioId": 5,
+      "vacunado": true,
+      "castrado": false,
+      "observaciones": "Es un gato co manchas negras, y una mancha grande en la cara (naiz y boca) café."
     }
   ],
   "mascotas": [
@@ -64,6 +88,37 @@
       "vacunado": true,
       "castrado": false,
       "observaciones": "Tiene un pequeño corte en la oreja izquierda"
+    },
+    {
+      "id": 4,
+      "nombre": "Rufus",
+      "especie": "Perro",
+      "raza": "Bulldog",
+      "edad": 3,
+      "sexo": "Macho",
+      "color": "Negro",
+      "peso": 4.2,
+      "usuarioId": 4,
+      "vacunado": true,
+      "castrado": false,
+      "observaciones": "Tiene una mancha blanca desde el pecho hasta la boca del estomago y un corte en forma de v ascendenten en la patita derecha delantera"
+    },
+    {
+      "id": 5,
+      "nombre": "Sam",
+      "email": "analia@gmail.com",
+      "telefono": "1123456789",
+      "direccion": "San Lius",
+      "especie": "Gato",
+      "raza": "Mestizo",
+      "edad": 5,
+      "sexo": "Macho",
+      "color": "Blanco y negro",
+      "peso": 4,
+      "usuarioId": 5,
+      "vacunado": true,
+      "castrado": false,
+      "observaciones": "Es un gato co manchas negras, y una mancha grande en la cara (nariz y boca) café."
     }
   ]
 }

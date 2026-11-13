@@ -9,7 +9,7 @@ const paginaAyuda = fileURLToPath(new URL('./public/ayuda.html', import.meta.url
 
 app.use(express.json());
 
-// La página principal abre una guía para quienes recién empiezan.
+// La página principal abre una guía.
 app.get('/', (_req, res) => res.redirect('/ayuda'));
 app.get('/ayuda', (_req, res) => res.sendFile(paginaAyuda));
 
