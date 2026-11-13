@@ -31,5 +31,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(puerto, () => {
-    console.log(`API lista en http://localhost:${puerto}`);
+    console.log(`API lista en http://localhost:${puerto}`); //TAMBIEN PUEDE TENER DIRECTAMENTE 3000 EN LUGAR DE PUERTO (o como dice en este caso puerto)
 });

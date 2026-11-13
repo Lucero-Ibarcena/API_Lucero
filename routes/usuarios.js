@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(usuario);
 });
 
-// PUT /usuarios/1: actualiza solo los campos que envíes. NO TOCAR
+// PUT /usuarios/1: actualiza solo los campos que envíes. NO TOCAR (ARREGLAR PODER CAMBIAR/MODIFICAR DATOS ESPECIFICOS SIN QUE DEJE DE TIRAR ERROR)
 router.put('/:id', async (req, res) => {
     const usuario = buscarPorId(datos.usuarios, req.params.id);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
