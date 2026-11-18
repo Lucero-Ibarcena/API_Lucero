@@ -6,6 +6,11 @@ node_modules/
 # Variables de entorno
 .env
 
+# Bases de datos y perfiles de usuarios (datos privados)
+data/*.sqlite
+data/*.sqlite-*
+data/mascotas-documentos.json
+
 # Archivos de logs
 *.log
 

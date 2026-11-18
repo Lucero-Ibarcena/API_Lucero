@@ -1,12 +1,15 @@
 {
   "type": "module",
-  "name": "api_lucero",
+  "name": "huellas-red-mascotas",
   "version": "1.0.0",
-  "description": "API REST para administrar usuarios y registrar mascotas de cualquier especie",
-  "main": "server.js",
+  "description": "Red web para registrar, buscar y cuidar mascotas en comunidad",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node src/server.js"
   },
   "keywords": ["api", "mascotas", "usuarios", "crud"],
   "author": "",
