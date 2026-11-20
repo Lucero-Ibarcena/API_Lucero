@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { ahora, db, vistaUsuario } from '../../config/database.js';
 import { autenticacionRequerida, tokenHash } from '../../middleware/auth.js';
 
+
 const router = Router();
 const DIAS_SESION = 7;
 

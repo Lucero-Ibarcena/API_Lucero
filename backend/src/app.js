@@ -1,9 +1,9 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
-import contactRoutes from './modules/contact/routes.js';
-import petRoutes from './modules/pets/routes.js';
-import placeRoutes from './modules/places/routes.js';
-import userRoutes from './modules/users/routes.js';
+import contactRoutes from '../modules/contact/routes.js';
+import petRoutes from '../modules/pets/routes.js';
+import placeRoutes from '../modules/places/routes.js';
+import userRoutes from '../modules/users/routes.js';
 
 const app = express();
 const publicDirectory = fileURLToPath(new URL('../public/', import.meta.url));

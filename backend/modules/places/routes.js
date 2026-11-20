@@ -5,7 +5,37 @@ import { autenticacionRequerida } from '../../middleware/auth.js';
 const router = Router();
 const CATEGORIAS = new Set(['veterinaria', 'guardia', 'tienda', 'peluqueria', 'refugio', 'guarderia', 'escuela', 'perrera', 'otro']);
 
+
+//Helper para geocodificar dirección si el usuario no mandó coordenadas
+async function geocodificarDireccion(direccion, localidad, pais) {
+  const query = [direccion, localidad, pais].filter(Boolean).join(', ');
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'LuceroApp/1.0',
+        'Accept-Language': 'es',
+      },
+    });
+    const data = await res.json();
+    if (data && data.length > 0) {
+      return {
+        latitud: parseFloat(data[0].lat),
+        longitud: parseFloat(data[0].lon),
+      };
+    }
+  } catch (err) {
+    console.error('Error al geocodificar:', err.message);
+  }
+  return null;
+}
+
+
 function vistaLugar(lugar) {
+  const lat = lugar.latitud
+  const lng = lugar.longitud
+  const tieneCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
   return {
     id: lugar.id,
     nombre: lugar.nombre,
@@ -17,12 +47,18 @@ function vistaLugar(lugar) {
     pais: lugar.pais,
     telefono: lugar.telefono || null,
     email: lugar.email || null,
-    ubicacion: { latitud: lugar.latitud, longitud: lugar.longitud },
+    ubicacion: {  latitud: lat, longitud: lng  }, //con esto se "arregla" el uso de latitud y longitud
     guardia: Boolean(lugar.guardia),
     verificado: Boolean(lugar.verificado),
+    // Enlace listo para abrir Google Maps y navegar directamente al lugar
+    comoLlegarUrl: tieneCoords
+      ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([lugar.direccion, lugar.localidad, lugar.pais].filter(Boolean).join(', '))}`,
   };
-}
+};
 
+
+//POR AHORA NO TOCAR
 function distanciaKm(lat1, lon1, lat2, lon2) {
   const rad = (grados) => grados * Math.PI / 180;
   const dLat = rad(lat2 - lat1);
@@ -32,6 +68,8 @@ function distanciaKm(lat1, lon1, lat2, lon2) {
 }
 
 // Los puntos pueden ser reportados por usuarios; verificado indica moderación pendiente.
+
+//GET para listar lugares y filtrar por texto o distancia
 router.get('/', (req, res) => {
   const condiciones = [];
   const valores = [];
@@ -61,6 +99,7 @@ router.get('/', (req, res) => {
   res.json(lugares.map(vistaLugar));
 });
 
+//POST para crear lugares
 router.post('/', autenticacionRequerida, (req, res) => {
   const cuerpo = req.body ?? {};
   const nombre = typeof cuerpo.nombre === 'string' ? cuerpo.nombre.trim() : '';
@@ -92,6 +131,7 @@ router.post('/', autenticacionRequerida, (req, res) => {
   res.status(201).json(vistaLugar(lugar));
 });
 
+//PUT para modificar lugares
 router.put('/:id', autenticacionRequerida, (req, res) => {
   const id = Number(req.params.id);
   const lugar = db.prepare('SELECT * FROM lugares WHERE id = ?').get(id);
@@ -130,6 +170,8 @@ router.put('/:id', autenticacionRequerida, (req, res) => {
   res.json(vistaLugar(db.prepare('SELECT * FROM lugares WHERE id = ?').get(id)));
 });
 
+
+//DELETE para borrar lugares
 router.delete('/:id', autenticacionRequerida, (req, res) => {
   const id = Number(req.params.id);
   const lugar = db.prepare('SELECT * FROM lugares WHERE id = ?').get(id);
