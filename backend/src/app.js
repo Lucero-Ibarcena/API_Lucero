@@ -7,7 +7,7 @@ import userRoutes from '../modules/users/routes.js';
 
 const app = express();
 const publicDirectory = fileURLToPath(new URL('../public/', import.meta.url));
-const helpPage = fileURLToPath(new URL('../public/ayuda.html', import.meta.url));
+const helpPage = fileURLToPath(new URL('../../frontend/ayuda.html', import.meta.url));
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));

@@ -3,8 +3,6 @@ import { ahora, db, responsablePrincipal } from '../../config/database.js';
 import { obtenerDocumento } from '../../config/documentos.js';
 import { autenticacionRequerida } from '../../middleware/auth.js';
 
-import { auth } from '../../middleware/auth.js';
-
 const router = Router();
 router.use(autenticacionRequerida);
 
