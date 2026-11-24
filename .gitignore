@@ -1,18 +1,20 @@
-node_modules
-
-# Dependencias de Node.js
+# Dependencias y resultados generados
 node_modules/
+dist/
+coverage/
 
-# Variables de entorno
+# Configuración local y credenciales
 .env
 
-# Bases de datos y perfiles de usuarios (datos privados)
-data/*.sqlite
-data/*.sqlite-*
+# Bases locales y perfiles privados
+data/*.sqlite*
 data/mascotas-documentos.json
 
-# Archivos de logs
+# Archivos temporales y logs
+*.tmp
 *.log
+npm-debug.log*
 
-# Archivos del sistema
+# Archivos del sistema operativo
 .DS_Store
+Thumbs.db

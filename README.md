@@ -1,91 +1,101 @@
 # Huellas
 
-Red de registro y búsqueda de mascotas con una API y una interfaz web. La primera versión permite crear cuentas, registrar perfiles privados, publicar avisos de pérdida, buscar adopciones, compartir responsabilidades y consultar servicios para animales.
+Aplicación web y API para registrar, buscar y cuidar mascotas en comunidad. El servidor Express entrega la interfaz y la API desde el mismo origen.
 
-## Empezar
+## Requisitos e inicio
 
-Necesitas Node.js 22.5 o posterior. La aplicación utiliza SQLite incluido en Node y no requiere instalar un servidor de base de datos.
+- Node.js 22.5 o posterior (usa `node:sqlite`).
+- npm.
 
 ```bash
 npm install
 npm start
 ```
 
-Abre <http://localhost:3000>. La ruta `/` muestra la interfaz; `/ayuda` explica la API y `/estado` indica si el servidor está disponible. La interfaz y la API salen del mismo servidor, por eso no hace falta configurar CORS. Las pantallas también tienen enlaces directos bajo `/app/` y se pueden recargar sin perder la vista.
-
-| Pantalla | URL |
-|---|---|
-| Inicio | `/app/inicio` |
-| Buscar mascotas | `/app/buscar` |
-| Avisos de pérdida | `/app/avisos` |
-| Adopciones | `/app/adopcion` |
-| Servicios | `/app/servicios` |
-| Mis mascotas | `/app/mascotas` |
-| Ficha pública de una mascota | `/app/mascotas/:id` |
-| Cuenta y mensajes | `/app/cuenta` |
-| Publicar aviso | `/app/publicar` |
-
-Los filtros de búsqueda quedan en la URL, por ejemplo `/app/buscar?q=Luna&localidad=Palermo`. La app consulta la API del mismo servidor (`/mascotas`, `/lugares`, `/usuarios` y `/contacto`); las rutas `/app/...` sirven únicamente las pantallas web.
-
-## Recorrido rápido
-
-1. Pulsa **Crear cuenta** y registra tu usuario. La contraseña requiere al menos 12 caracteres.
-2. En **Mis mascotas**, guarda un perfil. Puedes dejarlo privado o publicarlo para que aparezca en búsquedas.
-3. Desde el perfil puedes editar los datos, avisar si se perdió, buscarle un hogar o invitar a otra cuenta a compartir el cuidado.
-4. En **Mascotas perdidas** y **En adopción**, busca por nombre, especie y localidad. Puedes enviar un mensaje a la persona responsable desde la app.
-5. En **Mapa de servicios**, filtra o agrega veterinarias, guardias, refugios y otros puntos. Los aportes nuevos aparecen como no verificados.
-6. En **Mi cuenta**, revisa los mensajes. Email y teléfono se comparten solo si la persona responsable acepta y autoriza esa solicitud.
+Abre <http://localhost:3000>. Puedes cambiar el puerto con la variable de entorno `PORT` y la ubicación de SQLite con `SQLITE_PATH`.
 
 ## Estructura
 
 ```text
-src/
-  app.js                    Express, archivos estáticos y rutas API
-  server.js                 Inicio del servidor
-  config/                   SQLite y colección documental
-  middleware/               Autenticación y sesiones
-  modules/
-    users/                  Cuentas y perfil
-    pets/                   Mascotas, estados y responsables
-    contact/                Solicitudes de contacto y permisos
-    places/                 Servicios del mapa
-public/
-  index.html                Interfaz web
-  css/styles.css            Estilos adaptables a móvil y escritorio
-  js/                       Llamadas a la API y vistas
-data/                       Bases locales (ignoradas por Git)
-legacy/                     Archivos anteriores conservados como referencia
+backend/
+  src/
+    app.js                 Configura Express, la interfaz y los errores HTTP
+    server.js              Inicia el servidor
+    index/api.js           Registra los módulos y prefijos de la API
+    config/
+      database.js          Esquema SQLite y consultas compartidas
+      documentos.js        Lectura y escritura de perfiles JSON
+    middleware/
+      auth.js              Validación de sesiones y permisos
+    modules/
+      users/routes.js      Registro, sesión y perfil de usuario
+      pets/routes.js       Perfiles, búsqueda y estados de mascotas
+      contact/routes.js    Solicitudes y permisos para compartir contacto
+      places/routes.js     Servicios y puntos del mapa
+frontend/
+  src/
+    index.html             Entrada de la aplicación web
+    ayuda.html             Guía de la API
+    css/
+      styles.css           Variables, colores y componentes visuales
+      layout.css           Distribución y adaptación de pantallas
+    js/
+      app.js               Navegación, vistas, formularios y acciones
+      api.js               Solicitudes HTTP y sesión local
+      ui.js                Tarjetas y elementos reutilizables
+      icons.js             Catálogo de iconos SVG
+data/                      Almacenes locales (ignorados por Git)
+legacy/                    Código y datos de la primera versión, solo referencia
+postman/                   Ajustes del espacio de trabajo de Postman
+index.js                   Entrada del paquete para importar la aplicación Express
 ```
+
+`backend/src/index/api.js` es el índice central de rutas: para sumar un área nueva, se crea su módulo bajo `backend/src/modules/` y se registra allí. La interfaz se sirve directamente desde `frontend/src/`, sin un proceso de compilación.
+
+## Pantallas
+
+| Pantalla          | URL                 |
+| ----------------- | ------------------- |
+| Inicio            | `/app/inicio`       |
+| Buscar mascotas   | `/app/buscar`       |
+| Avisos de pérdida | `/app/avisos`       |
+| Adopciones        | `/app/adopcion`     |
+| Servicios         | `/app/servicios`    |
+| Mis mascotas      | `/app/mascotas`     |
+| Ficha pública     | `/app/mascotas/:id` |
+| Cuenta y mensajes | `/app/cuenta`       |
+| Publicar aviso    | `/app/publicar`     |
+| Sobre Huellas     | `/app/sobre`        |
+
+Las rutas `/app/...` cargan la misma aplicación y conservan la pantalla al abrir o recargar un enlace. Los filtros se pueden compartir en la URL, por ejemplo `/app/buscar?q=Luna&localidad=Palermo`.
 
 ## Datos
 
-- **SQLite** en `data/red-mascotas.sqlite`: cuentas, sesiones, relaciones de responsables, solicitudes y lugares.
-- **Colección documental JSON** en `data/mascotas-documentos.json`: perfiles flexibles de mascotas.
+- `data/red-mascotas.sqlite`: usuarios, sesiones, responsables, solicitudes de contacto y lugares.
+- `data/mascotas-documentos.json`: perfiles flexibles de mascotas; se crea al guardar el primer perfil.
+- `legacy/mascotas.json`: datos de muestra de la primera versión; no se importan automáticamente.
 
-En desarrollo ambos almacenes corren en un solo servidor local. La colección JSON facilita probar perfiles de distintas especies sin fijar un esquema rígido; para escalar a varios servidores se podrá sustituir por un servicio documental como MongoDB.
+La base de datos y los perfiles locales se excluyen de Git. SQLite funciona con el módulo incluido en Node; no hace falta instalar un servidor de base de datos.
 
-Los datos de ejemplo anteriores están conservados en `legacy/mascotas.json`, pero no se importan automáticamente: aquellas cuentas no tienen contraseñas verificadas. Para usar esta versión, crea una cuenta nueva y vuelve a registrar las mascotas necesarias.
+## API
 
-## Rutas API
+La guía completa con ejemplos está en <http://localhost:3000/ayuda>. Las rutas principales son:
 
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/usuarios` | Crear cuenta e iniciar sesión |
-| POST | `/usuarios/login` | Iniciar sesión |
-| GET/PATCH | `/usuarios/me` | Consultar o editar el perfil propio |
-| POST | `/usuarios/logout` | Cerrar sesión |
-| GET | `/mascotas` | Buscar perfiles publicados |
-| GET | `/mascotas/propias` | Listar perfiles propios y compartidos |
-| POST | `/mascotas` | Registrar una mascota |
-| PUT | `/mascotas/:id` | Editar perfil |
-| PATCH | `/mascotas/:id/estado` | Cambiar estado |
-| POST | `/mascotas/:id/reportes/perdida` | Publicar aviso de pérdida |
-| POST | `/mascotas/:id/responsables` | Invitar a compartir el cuidado |
-| POST/GET | `/contacto/solicitudes` | Enviar o revisar solicitudes |
-| GET/POST | `/lugares` | Buscar o agregar lugares |
+| Método           | Ruta                    | Uso                                                |
+| ---------------- | ----------------------- | -------------------------------------------------- |
+| GET              | `/estado`               | Estado del servidor                                |
+| POST             | `/usuarios`             | Crear una cuenta e iniciar sesión                  |
+| POST             | `/usuarios/login`       | Iniciar sesión                                     |
+| GET/PATCH/DELETE | `/usuarios/me`          | Consultar, editar o eliminar la cuenta              |
+| PATCH            | `/usuarios/me/contrasena` | Cambiar la contraseña                              |
+| POST             | `/usuarios/logout`      | Cerrar sesión                                      |
+| GET/POST         | `/mascotas`             | Buscar perfiles publicados o registrar una mascota |
+| GET              | `/mascotas/propias`     | Listar perfiles propios y compartidos              |
+| PUT              | `/mascotas/:id`         | Editar un perfil                                     |
+| PATCH            | `/mascotas/:id/estado`  | Cambiar el estado                                    |
+| DELETE           | `/mascotas/:id`         | Eliminar un perfil                                   |
+| POST/GET/DELETE  | `/contacto/solicitudes` | Enviar, consultar o cancelar solicitudes pendientes |
+| GET/POST         | `/lugares`              | Consultar o agregar servicios                      |
+| GET/PUT/DELETE   | `/lugares/:id`          | Consultar, editar o eliminar un servicio propio     |
 
-Las rutas privadas requieren el token de sesión en `Authorization: Bearer <token>`. La guía `/ayuda` tiene ejemplos completos para enviar solicitudes desde Postman.
-
-## Alcance de esta vista previa
-
-La interfaz ya permite registrar cuentas y perfiles, buscar mascotas, reportar una pérdida, cambiar un perfil a adopción, compartir responsabilidades, escribir a responsables con permiso y agregar puntos al mapa. El mapa incluido es ilustrativo y posiciona los servicios con sus coordenadas; no carga mapas ni geocodificación de terceros. Eventos, colectas, carga de imágenes y verificación por email quedan para una siguiente etapa.
+Las rutas privadas requieren `Authorization: Bearer <token>`. Los perfiles públicos no exponen datos privados como coordenadas exactas, teléfono, email ni información médica restringida.

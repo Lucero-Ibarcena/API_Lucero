@@ -1,7 +1,7 @@
-import app from './app.js';
+import app from "./app.js";
 
-const puerto = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT || 3000);
 
-app.listen(puerto, () => {
-  console.log(`Red de Mascotas disponible en http://localhost:${puerto}`);
+app.listen(port, () => {
+  console.log(`Huellas disponible en http://localhost:${port}`);
 });

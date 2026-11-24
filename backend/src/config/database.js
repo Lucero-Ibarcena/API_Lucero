@@ -1,10 +1,12 @@
-import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
 
-const raizDatos = fileURLToPath(new URL('../../data/', import.meta.url));
-const archivo = resolve(process.env.SQLITE_PATH || `${raizDatos}red-mascotas.sqlite`);
+// Abre SQLite, crea el esquema y ofrece consultas reutilizables para la API.
+const dataDirectory = fileURLToPath(new URL("../../../data/", import.meta.url));
+const archivo =
+  process.env.SQLITE_PATH || resolve(dataDirectory, "red-mascotas.sqlite");
 mkdirSync(dirname(archivo), { recursive: true });
 
 export const db = new DatabaseSync(archivo);
@@ -12,6 +14,7 @@ db.exec(`
   PRAGMA foreign_keys = ON;
   PRAGMA journal_mode = WAL;
 
+  -- Cuentas de usuario y datos de perfil.
   CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,
@@ -26,6 +29,7 @@ db.exec(`
     creado_en TEXT NOT NULL
   );
 
+  -- Sesiones con token en hash y fecha de vencimiento.
   CREATE TABLE IF NOT EXISTS sesiones (
     token_hash TEXT PRIMARY KEY,
     usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -34,6 +38,7 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS sesiones_usuario_idx ON sesiones(usuario_id);
 
+  -- Responsables principales y compartidos por mascota.
   CREATE TABLE IF NOT EXISTS responsables_mascota (
     mascota_id TEXT NOT NULL,
     usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -46,6 +51,7 @@ db.exec(`
     ON responsables_mascota(mascota_id) WHERE rol = 'principal' AND estado = 'activo';
   CREATE INDEX IF NOT EXISTS responsables_usuario_idx ON responsables_mascota(usuario_id, estado);
 
+  -- Solicitudes de contacto y autorización para compartir datos.
   CREATE TABLE IF NOT EXISTS solicitudes_contacto (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     mascota_id TEXT NOT NULL,
@@ -60,6 +66,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS solicitudes_destinatario_idx ON solicitudes_contacto(destinatario_id, estado);
   CREATE INDEX IF NOT EXISTS solicitudes_solicitante_idx ON solicitudes_contacto(solicitante_id, estado);
 
+  -- Lugares de servicio aportados por la comunidad.
   CREATE TABLE IF NOT EXISTS lugares (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     creador_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -81,10 +88,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS lugares_categoria_idx ON lugares(categoria, pais, localidad);
 `);
 
+/** Devuelve la fecha actual en formato ISO para persistirla en SQLite. */
 export function ahora() {
   return new Date().toISOString();
 }
 
+/** Reduce el registro de usuario a los campos que puede recibir su titular. */
 export function vistaUsuario(usuario) {
   if (!usuario) return null;
   return {
@@ -100,49 +109,82 @@ export function vistaUsuario(usuario) {
   };
 }
 
+/** Devuelve el nombre de un usuario solo si habilitó su publicación. */
 export function usuarioPublico(usuario) {
   if (!usuario || !usuario.mostrar_nombre_publico) return null;
   return { nombre: usuario.nombre_publico || usuario.nombre };
 }
 
+/** Lista los responsables activos que aceptaron mostrar su nombre. */
 export function responsablesPublicos(mascotaId) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT u.nombre, u.nombre_publico, r.rol FROM responsables_mascota r
     JOIN usuarios u ON u.id = r.usuario_id
     WHERE r.mascota_id = ? AND r.estado = 'activo' AND u.mostrar_nombre_publico = 1
     ORDER BY CASE r.rol WHEN 'principal' THEN 0 ELSE 1 END, u.nombre_publico
-  `).all(mascotaId).map((usuario) => ({
-    nombre: usuario.nombre_publico || usuario.nombre,
-    rol: usuario.rol,
-  }));
+  `,
+    )
+    .all(mascotaId)
+    .map((usuario) => ({
+      nombre: usuario.nombre_publico || usuario.nombre,
+      rol: usuario.rol,
+    }));
 }
 
-export function agregarResponsable(mascotaId, usuarioId, rol = 'principal', estado = 'activo') {
-  db.prepare(`
+/** Crea o actualiza el vínculo entre una mascota y una cuenta. */
+export function agregarResponsable(
+  mascotaId,
+  usuarioId,
+  rol = "principal",
+  estado = "activo",
+) {
+  db.prepare(
+    `
     INSERT INTO responsables_mascota (mascota_id, usuario_id, rol, estado, creado_en)
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(mascota_id, usuario_id) DO UPDATE SET rol = excluded.rol, estado = excluded.estado
-  `).run(mascotaId, usuarioId, rol, estado, ahora());
+  `,
+  ).run(mascotaId, usuarioId, rol, estado, ahora());
 }
 
+/** Busca el responsable principal activo de una mascota. */
 export function responsablePrincipal(mascotaId) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT u.* FROM responsables_mascota r JOIN usuarios u ON u.id = r.usuario_id
     WHERE r.mascota_id = ? AND r.rol = 'principal' AND r.estado = 'activo'
-  `).get(mascotaId);
+  `,
+    )
+    .get(mascotaId);
 }
 
+/** Comprueba si una cuenta tiene permiso activo para administrar una mascota. */
 export function puedeAdministrarMascota(mascotaId, usuarioId) {
-  return Boolean(db.prepare(`
+  return Boolean(
+    db
+      .prepare(
+        `
     SELECT 1 FROM responsables_mascota
     WHERE mascota_id = ? AND usuario_id = ? AND estado = 'activo'
-  `).get(mascotaId, usuarioId));
+  `,
+      )
+      .get(mascotaId, usuarioId),
+  );
 }
 
+/** Comprueba si la cuenta es el responsable principal activo. */
 export function esResponsablePrincipal(mascotaId, usuarioId) {
-  return Boolean(db.prepare(`
+  return Boolean(
+    db
+      .prepare(
+        `
     SELECT 1 FROM responsables_mascota
     WHERE mascota_id = ? AND usuario_id = ? AND rol = 'principal' AND estado = 'activo'
-  `).get(mascotaId, usuarioId));
+  `,
+      )
+      .get(mascotaId, usuarioId),
+  );
 }
-
