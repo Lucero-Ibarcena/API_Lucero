@@ -31,7 +31,7 @@ export function statusLabel(status = "registrada") {
 }
 
 /** Acepta fotos HTTPS o del mismo origen para evitar enlaces inseguros. */
-function photoUrl(pet) {
+export function photoUrl(pet) {
   const candidate = Array.isArray(pet.fotos)
     ? pet.fotos.find((item) => typeof item === "string")
     : null;
@@ -57,7 +57,7 @@ export function petCard(
     "Ubicación no informada";
   const image = photoUrl(pet);
   const imageContent = image
-    ? `<img src="${esc(image)}" alt="Foto de ${esc(pet.nombre)}" loading="lazy">`
+    ? `<img data-photo-url="${esc(image)}" alt="Foto de ${esc(pet.nombre)}" loading="lazy">`
     : "";
   const colors = Array.isArray(pet.colores)
     ? pet.colores.join(" · ")

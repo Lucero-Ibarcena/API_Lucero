@@ -11,11 +11,13 @@ import {
   usuarioPublico,
 } from "../../config/database.js";
 import {
+  contenidoFotoValido,
   eliminarFotosMascota,
   extensionesFoto,
   guardarFotoMascota,
   maximoBytesFoto,
   maximoFotosMascota,
+  rutaArchivoFoto,
 } from "../../config/fotos.js";
 import {
   eliminarDocumento,
@@ -430,26 +432,79 @@ router.post(
       return res.status(404).json({ mensaje: "Mascota no encontrada." });
     if (!responsableAutorizado(req, res, mascota)) return;
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
-      return res.status(400).json({ mensaje: "Selecciona una foto para subir." });
+      return res
+        .status(400)
+        .json({ mensaje: "Selecciona una foto para subir." });
+    }
+    if (!contenidoFotoValido(req.body, req.tipoFoto)) {
+      return res
+        .status(415)
+        .json({
+          mensaje: "El contenido del archivo no coincide con una foto válida.",
+        });
     }
 
     const fotos = Array.isArray(mascota.fotos) ? mascota.fotos : [];
     if (fotos.length >= maximoFotosMascota) {
       return res
         .status(409)
-        .json({ mensaje: `Cada mascota puede tener hasta ${maximoFotosMascota} fotos.` });
+        .json({
+          mensaje: `Cada mascota puede tener hasta ${maximoFotosMascota} fotos.`,
+        });
     }
 
-    const ruta = await guardarFotoMascota(req.body, req.tipoFoto);
+    const ruta = await guardarFotoMascota(mascota.id, req.body, req.tipoFoto);
+    const actualizadoAntes = mascota.actualizadoEn;
     mascota.fotos = [...fotos, ruta];
     mascota.actualizadoEn = new Date().toISOString();
     try {
       await guardarDocumento(mascota);
     } catch (error) {
+      if (fotos.length > 0) mascota.fotos = fotos;
+      else delete mascota.fotos;
+      if (actualizadoAntes === undefined) delete mascota.actualizadoEn;
+      else mascota.actualizadoEn = actualizadoAntes;
       await eliminarFotosMascota({ fotos: [ruta] });
       throw error;
     }
     res.status(201).json({ fotos: mascota.fotos });
+  },
+);
+
+// Sirve fotos públicas o privadas según la visibilidad y el permiso del perfil.
+router.get(
+  "/:id/fotos/:nombre",
+  autenticacionOpcional,
+  (req, res, next) => {
+    const mascota = obtenerDocumento(req.params.id);
+    if (!mascota)
+      return res.status(404).json({ mensaje: "Foto no encontrada." });
+    const ruta = `/mascotas/${encodeURIComponent(mascota.id)}/fotos/${req.params.nombre}`;
+    if (!Array.isArray(mascota.fotos) || !mascota.fotos.includes(ruta)) {
+      return res.status(404).json({ mensaje: "Foto no encontrada." });
+    }
+    if (
+      mascota.publicar !== true &&
+      (!req.usuario || !puedeAdministrarMascota(mascota.id, req.usuario.id))
+    ) {
+      return res.status(404).json({ mensaje: "Foto no encontrada." });
+    }
+    const archivo = rutaArchivoFoto(req.params.nombre);
+    if (!archivo)
+      return res.status(404).json({ mensaje: "Foto no encontrada." });
+    res.set(
+      "Cache-Control",
+      mascota.publicar
+        ? "public, max-age=0, must-revalidate"
+        : "private, no-store",
+    );
+    res.set("X-Content-Type-Options", "nosniff");
+    res.sendFile(archivo, (error) => {
+      if (!error || res.headersSent) return;
+      if (error.status === 404)
+        return res.status(404).json({ mensaje: "Foto no encontrada." });
+      next(error);
+    });
   },
 );
 

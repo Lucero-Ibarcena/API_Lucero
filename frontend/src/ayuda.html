@@ -205,6 +205,14 @@
         muestran microchip, domicilio, coordenadas exactas, notas médicas
         privadas, email ni teléfono.
       </p>
+      <p>
+        Para subir fotos, usa <code>POST /mascotas/ID/fotos</code> con el archivo
+        binario como cuerpo y su tipo MIME (<code>image/jpeg</code>,
+        <code>image/png</code> o <code>image/webp</code>). Cada foto puede pesar
+        hasta 5 MB y cada perfil admite hasta cinco. Las fotos de perfiles
+        privados requieren una sesión con permiso para ver esa mascota; se
+        consultan con <code>GET /mascotas/ID/fotos/NOMBRE</code>.
+      </p>
     </section>
 
     <section>
@@ -251,9 +259,11 @@
       </p>
       <p>
         Las cuentas pueden reportar veterinarias, guardias, tiendas,
-        peluquerías, refugios, guarderías, escuelas, perreras u otros puntos con
-        <code>POST /lugares</code>. La respuesta indica si el punto fue
-        verificado. El creador puede consultar un punto con
+        peluquerías, refugios, guarderías, escuelas, perreras, parques, plazas y
+        lugares pet friendly con <code>POST /lugares</code>. En la aplicación,
+        el punto se elige buscando su dirección o tocando el mapa; no hace falta
+        escribir coordenadas. La respuesta indica si el punto fue verificado.
+        El creador puede consultar un punto con
         <code>GET /lugares/ID</code>, editarlo con
         <code>PUT /lugares/ID</code> o eliminarlo con
         <code>DELETE /lugares/ID</code>.
@@ -265,8 +275,9 @@
       <p>
         SQLite guarda cuentas, sesiones, permisos, solicitudes y lugares. Los
         perfiles flexibles de mascotas usan una colección documental JSON local.
-        Es una configuración de desarrollo de un solo servidor, sin servicios
-        externos.
+        Las fotos se guardan como archivos locales en
+        <code>data/uploads/mascotas</code>. Es una configuración de desarrollo
+        de un solo servidor, sin servicios externos.
       </p>
       <p>
         <code>GET /estado</code> informa si la API está disponible. Para iniciar

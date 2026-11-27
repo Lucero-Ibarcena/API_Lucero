@@ -1,6 +1,6 @@
-// Catálogo de formas SVG reutilizables en botones y componentes.
+// Catálogo de iconos reutilizables en botones y componentes.
+// La huella conserva la silueta de referencia desde assets/huellas.png.
 const shapes = {
-  paw: '<ellipse cx="6.5" cy="8" rx="2.3" ry="3.2" transform="rotate(-22 6.5 8)" fill="currentColor"/><ellipse cx="11.3" cy="5.2" rx="2.3" ry="3.3" transform="rotate(-7 11.3 5.2)" fill="currentColor"/><ellipse cx="16.5" cy="6.2" rx="2.3" ry="3.2" transform="rotate(15 16.5 6.2)" fill="currentColor"/><ellipse cx="20.2" cy="10.1" rx="2.1" ry="2.9" transform="rotate(35 20.2 10.1)" fill="currentColor"/><path d="M12 12.2c-1.9-2.7-6.6-2.6-8.1.2-1.6 3.1 1.1 7.7 3.5 8.6 1.6.6 2.8-.6 4.6-.6s3 1.2 4.6.6c2.4-.9 5.1-5.5 3.5-8.6-1.5-2.8-6.2-2.9-8.1-.2Z" fill="currentColor"/>',
   home: '<path d="m3.5 10.5 8.5-7 8.5 7v9a1 1 0 0 1-1 1h-5.2v-6h-4.6v6H4.5a1 1 0 0 1-1-1v-9Z"/>',
   search: '<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/>',
   megaphone:
@@ -43,11 +43,14 @@ const shapes = {
 
 /** Genera un icono SVG accesible a partir del nombre registrado. */
 export function icon(name, className = "") {
+  if (name === "paw") {
+    const classes = ["icon", "icon-paw", className].filter(Boolean).join(" ");
+    return `<span class="${classes}" aria-hidden="true"></span>`;
+  }
+
   const shape =
     shapes[name] ||
     '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>';
-  const classes = ["icon", name === "paw" ? "icon-filled" : "", className]
-    .filter(Boolean)
-    .join(" ");
+  const classes = ["icon", className].filter(Boolean).join(" ");
   return `<svg class="${classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${shape}</svg>`;
 }

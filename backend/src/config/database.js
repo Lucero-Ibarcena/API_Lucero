@@ -86,6 +86,26 @@ db.exec(`
     creado_en TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS lugares_categoria_idx ON lugares(categoria, pais, localidad);
+
+  -- Opiniones escritas en Huellas; no mezcla contenido importado de Google.
+  CREATE TABLE IF NOT EXISTS resenas_lugares (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lugar_id INTEGER NOT NULL REFERENCES lugares(id) ON DELETE CASCADE,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    puntuacion INTEGER NOT NULL CHECK (puntuacion BETWEEN 1 AND 5),
+    comentario TEXT NOT NULL DEFAULT '' CHECK (length(comentario) <= 1200),
+    creado_en TEXT NOT NULL,
+    actualizado_en TEXT NOT NULL,
+    UNIQUE (lugar_id, usuario_id)
+  );
+  CREATE INDEX IF NOT EXISTS resenas_lugar_idx
+    ON resenas_lugares(lugar_id, creado_en DESC);
+
+  -- Registra las cargas de datos iniciales para que no se repitan al reiniciar.
+  CREATE TABLE IF NOT EXISTS semillas_aplicadas (
+    clave TEXT PRIMARY KEY,
+    aplicada_en TEXT NOT NULL
+  );
 `);
 
 /** Devuelve la fecha actual en formato ISO para persistirla en SQLite. */

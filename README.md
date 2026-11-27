@@ -73,13 +73,16 @@ Las rutas `/app/...` cargan la misma aplicación y conservan la pantalla al abri
 
 - `data/red-mascotas.sqlite`: usuarios, sesiones, responsables, solicitudes de contacto y lugares.
 - `data/mascotas-documentos.json`: perfiles flexibles de mascotas; se crea al guardar el primer perfil.
+- `data/uploads/mascotas/`: fotos cargadas por responsables; se crea al subir la primera imagen.
 - `legacy/mascotas.json`: datos de muestra de la primera versión; no se importan automáticamente.
 
-La base de datos y los perfiles locales se excluyen de Git. SQLite funciona con el módulo incluido en Node; no hace falta instalar un servidor de base de datos.
+La base de datos, los perfiles locales y las fotos cargadas se excluyen de Git. SQLite funciona con el módulo incluido en Node; no hace falta instalar un servidor de base de datos.
 
 ## API
 
 La guía completa con ejemplos está en <http://localhost:3000/ayuda>. Las rutas principales son:
+
+Para ejecutar las operaciones CRUD desde Postman, consulta la [guía de anotaciones en español](docs/ANOTACIONES_POSTMAN.md), con pasos, cuerpos JSON y autenticación.
 
 | Método           | Ruta                    | Uso                                                |
 | ---------------- | ----------------------- | -------------------------------------------------- |
@@ -91,6 +94,8 @@ La guía completa con ejemplos está en <http://localhost:3000/ayuda>. Las rutas
 | POST             | `/usuarios/logout`      | Cerrar sesión                                      |
 | GET/POST         | `/mascotas`             | Buscar perfiles publicados o registrar una mascota |
 | GET              | `/mascotas/propias`     | Listar perfiles propios y compartidos              |
+| POST             | `/mascotas/:id/fotos`   | Subir una foto JPG, PNG o WebP                      |
+| GET              | `/mascotas/:id/fotos/:nombre` | Consultar foto según permisos del perfil        |
 | PUT              | `/mascotas/:id`         | Editar un perfil                                     |
 | PATCH            | `/mascotas/:id/estado`  | Cambiar el estado                                    |
 | DELETE           | `/mascotas/:id`         | Eliminar un perfil                                   |

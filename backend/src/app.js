@@ -9,14 +9,10 @@ const frontendDirectory = fileURLToPath(
 const helpPage = fileURLToPath(
   new URL("../../frontend/src/ayuda.html", import.meta.url),
 );
-const uploadsDirectory = fileURLToPath(
-  new URL("../../data/uploads/", import.meta.url),
-);
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(frontendDirectory));
-app.use("/uploads", express.static(uploadsDirectory, { maxAge: "1d" }));
 
 // Rutas de estado y ayuda para comprobar el servicio y consultar la API.
 app.get("/ayuda", (_req, res) => res.sendFile(helpPage));
@@ -40,14 +36,19 @@ app.use((_req, res) => {
     .json({ mensaje: "Ruta no encontrada. Consulta la guía en /ayuda." });
 });
 
-app.use((error, _req, res, _next) => {
+app.use((error, req, res, _next) => {
   if (error instanceof SyntaxError || error.type === "entity.parse.failed") {
     return res.status(400).json({ mensaje: "El JSON enviado no es válido." });
   }
   if (error.status === 413 || error.type === "entity.too.large") {
+    const esFoto = (req.get("content-type") || "").startsWith("image/");
     return res
       .status(413)
-      .json({ mensaje: "El cuerpo de la solicitud supera el máximo de 1 MB." });
+      .json({
+        mensaje: esFoto
+          ? "La foto supera el tamaño máximo de 5 MB."
+          : "El cuerpo de la solicitud supera el máximo de 1 MB.",
+      });
   }
   console.error(error);
   res.status(500).json({ mensaje: "Ocurrió un error en el servidor." });

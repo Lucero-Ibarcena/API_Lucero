@@ -1,12 +1,26 @@
 import {
   api,
+  apiBlob,
   clearSession,
   getCachedUser,
   hasToken,
   saveSession,
 } from "./api.js";
-import { emptyState, esc, petCard, sectionHeader, statusLabel } from "./ui.js";
+import {
+  emptyState,
+  esc,
+  petCard,
+  photoUrl,
+  sectionHeader,
+  statusLabel,
+} from "./ui.js";
 import { icon } from "./icons.js";
+import { disposeControls, enhanceControls } from "./controls.js";
+import {
+  disposeServiceMaps,
+  mountServiceLocationPicker,
+  mountServicesDirectoryMap,
+} from "./services-map.js";
 
 // Estado compartido de navegación, sesión y datos de las pantallas.
 const content = document.querySelector("#content");
@@ -57,6 +71,8 @@ const state = {
   publishDraft: {},
   pendingAction: "",
   routePet: null,
+  publishPhotoFiles: [],
+  publishPhotosUploaded: [],
 };
 
 // Quita acciones de gestión de servicios cuando la sesión deja de ser válida.
@@ -304,16 +320,70 @@ function closeNav() {
 
 function openModal(markup) {
   closeNav();
+  disposeServiceMaps(modalContent);
+  disposeControls(modalContent);
+  liberarFotos(modalContent);
   modalContent.innerHTML = markup;
+  enhanceControls(modalContent);
+  cargarFotos(modalContent);
   if (!modal.open) modal.showModal();
   modalContent
-    .querySelector('input:not([type="hidden"]), select, textarea')
+    .querySelector(
+      '[data-custom-select-trigger], [data-custom-date-trigger], input:not([type="hidden"]):not(.custom-control-native), select:not(.custom-control-native), textarea',
+    )
     ?.focus({ preventScroll: true });
 }
 
 function closeModal() {
+  disposeServiceMaps(modalContent);
+  disposeControls(modalContent);
+  liberarFotos(modalContent);
   modal.close();
   modalContent.replaceChildren();
+}
+
+/** Libera las URL temporales creadas para mostrar imágenes descargadas. */
+function liberarFotos(root) {
+  root.querySelectorAll("img[data-photo-blob]").forEach((image) => {
+    URL.revokeObjectURL(image.dataset.photoBlob);
+    delete image.dataset.photoBlob;
+  });
+}
+
+/** Carga fotos privadas con el token y deja las URL externas sin credenciales. */
+function cargarFotos(root) {
+  root.querySelectorAll("img[data-photo-url]").forEach(async (image) => {
+    image.addEventListener(
+      "error",
+      () => {
+        if (image.dataset.photoBlob)
+          URL.revokeObjectURL(image.dataset.photoBlob);
+        image.remove();
+      },
+      { once: true },
+    );
+    let destino;
+    try {
+      destino = new URL(image.dataset.photoUrl, location.origin);
+    } catch {
+      image.remove();
+      return;
+    }
+
+    if (destino.origin !== location.origin) {
+      image.src = destino.href;
+      return;
+    }
+    try {
+      const blob = await apiBlob(`${destino.pathname}${destino.search}`);
+      if (!image.isConnected) return;
+      const fotoTemporal = URL.createObjectURL(blob);
+      image.dataset.photoBlob = fotoTemporal;
+      image.src = fotoTemporal;
+    } catch {
+      image.remove();
+    }
+  });
 }
 
 function authPanel() {
@@ -524,6 +594,8 @@ function serviceIcon(category = "") {
       guarderia: "house",
       escuela: "school",
       perrera: "house",
+      parque: "location",
+      pet_friendly: "heart",
       otro: "mapPin",
     }[category] || "mapPin",
   );
@@ -540,24 +612,36 @@ function servicesView() {
     "guarderia",
     "escuela",
     "perrera",
+    "parque",
+    "pet_friendly",
     "otro",
   ];
   const categoryLabels = {
     veterinaria: "Veterinaria",
     guardia: "Guardia",
-    tienda: "Tienda",
+    tienda: "Tienda / pet shop",
     peluqueria: "Peluquería",
     refugio: "Refugio",
     guarderia: "Guardería",
-    escuela: "Escuela",
+    escuela: "Escuela / adiestramiento",
     perrera: "Perrera",
+    parque: "Parque / plaza",
+    pet_friendly: "Lugar pet friendly",
     otro: "Otro",
   };
   const cards = state.places
     .map((place) => {
-      const latitude = Number(place.ubicacion?.latitud);
-      const longitude = Number(place.ubicacion?.longitud);
+      const rawLatitude = place.ubicacion?.latitud;
+      const rawLongitude = place.ubicacion?.longitud;
+      const latitude = Number(rawLatitude);
+      const longitude = Number(rawLongitude);
       const hasCoordinates =
+        rawLatitude !== undefined &&
+        rawLatitude !== null &&
+        rawLatitude !== "" &&
+        rawLongitude !== undefined &&
+        rawLongitude !== null &&
+        rawLongitude !== "" &&
         Number.isFinite(latitude) &&
         latitude >= -90 &&
         latitude <= 90 &&
@@ -574,6 +658,9 @@ function servicesView() {
         mapUrl
           ? `<a href="${esc(mapUrl)}" target="_blank" rel="noopener noreferrer">Abrir mapa ${icon("arrowUpRight")}</a>`
           : "",
+        place.comoLlegarUrl
+          ? `<a href="${esc(place.comoLlegarUrl)}" target="_blank" rel="noopener noreferrer">Cómo llegar ${icon("arrowUpRight")}</a>`
+          : "",
         phoneHref
           ? `<a href="tel:${esc(phoneHref)}">Llamar ${esc(phone)}</a>`
           : "",
@@ -583,6 +670,9 @@ function servicesView() {
       ]
         .filter(Boolean)
         .join("");
+      const focusAction = hasCoordinates
+        ? `<button class="button button-outline button-small" type="button" data-map-place-id="${esc(place.id)}">Ver en mapa</button>`
+        : "";
       const address = [
         place.direccion,
         place.localidad,
@@ -603,18 +693,37 @@ function servicesView() {
           <div class="service-meta">
             ${place.guardia ? '<span class="tiny-pill">Guardia 24 h</span>' : ""}
             <span class="tiny-pill ${place.verificado ? "is-verified" : ""}">
-              ${place.verificado ? "Verificado" : "Aporte comunitario"}
+              ${place.verificado ? "Verificado" : "Sin verificar por Huellas"}
             </span>
           </div>
-          ${links ? `<div class="service-actions">${links}</div>` : ""}
+          <div class="service-review-card-row"><span class="service-review-rating" aria-label="${place.resenas?.cantidad ? `${place.resenas.promedio} de 5 estrellas` : "Sin reseñas todavía"}">${place.resenas?.cantidad ? `★ ${esc(place.resenas.promedio)} <small>(${esc(place.resenas.cantidad)})</small>` : "Sin reseñas todavía"}</span><button class="button button-outline button-small" type="button" data-action="open-service-reviews" data-id="${esc(place.id)}">Ver reseñas y opinar</button></div>
+          ${links || focusAction ? `<div class="service-actions">${links}${focusAction}</div>` : ""}
           ${ownerActions ? `<div class="service-owner-actions">${ownerActions}</div>` : ""}
         </div>
       </article>`;
     })
     .join("");
-  return `${sectionHeader("CERCA DE TU COMUNIDAD", "Servicios para ellos", "Veterinarias, guardias, refugios y más. Los puntos con aporte comunitario aparecen identificados hasta ser verificados.", `<button class="button button-primary" data-action="${state.user ? "add-service" : "open-signup"}">${icon("plus")} Agregar lugar</button>`)}
-    <form class="search-panel" data-form="search-services"><div class="search-control"><label for="service-category">Tipo de servicio</label><select id="service-category" name="categoria"><option value="" ${!filters.categoria ? "selected" : ""}>Todos</option>${categories.map((item) => `<option value="${item}" ${filters.categoria === item ? "selected" : ""}>${item[0].toUpperCase() + item.slice(1)}</option>`).join("")}</select></div><div class="search-control"><label for="service-city">Localidad</label><input id="service-city" name="localidad" placeholder="Ciudad o barrio" value="${esc(filters.localidad || "")}"></div><div class="search-control"><label for="service-country">País</label><input id="service-country" name="pais" placeholder="País" value="${esc(filters.pais || "")}"></div><button class="button button-primary search-submit">Filtrar ${icon("search")}</button></form>
-    <div class="service-list">${cards || emptyState({ icon: "mapPin", title: "Todavía no hay servicios", text: "Prueba otra localidad o agrega una veterinaria, guardia o refugio para ayudar a tu zona." })}</div>`;
+  const legend = categories
+    .map(
+      (category) =>
+        `<span class="service-map-legend-item"><span class="service-map-legend-icon service-map-legend-icon--${category.replace(/_/g, "-")}">${serviceIcon(category)}</span>${esc(categoryLabels[category])}</span>`,
+    )
+    .join("");
+  return `${sectionHeader("CERCA DE TU COMUNIDAD", "Servicios para ellos", "Encuentra veterinarias, tiendas, plazas, espacios pet friendly y más. Los puntos comunitarios aparecen identificados hasta ser verificados.", `<button class="button button-primary" data-action="${state.user ? "add-service" : "open-signup"}">${icon("plus")} Agregar lugar</button>`)}
+    <form class="search-panel" data-form="search-services"><div class="search-control"><label for="service-category">Tipo de servicio</label><select id="service-category" name="categoria"><option value="" ${!filters.categoria ? "selected" : ""}>Todos</option>${categories.map((item) => `<option value="${item}" ${filters.categoria === item ? "selected" : ""}>${esc(categoryLabels[item])}</option>`).join("")}</select></div><div class="search-control"><label for="service-city">Localidad</label><input id="service-city" name="localidad" placeholder="Ciudad o barrio" value="${esc(filters.localidad || "")}"></div><div class="search-control"><label for="service-country">País</label><input id="service-country" name="pais" placeholder="País" value="${esc(filters.pais || "")}"></div><button class="button button-primary search-submit">Filtrar ${icon("search")}</button></form>
+    <section class="services-explorer" aria-labelledby="services-map-title">
+      <div class="services-explorer-heading"><div><span class="eyebrow">EXPLORÁ POR ZONA</span><h2 id="services-map-title">Mapa de servicios</h2><p>Todos los lugares de esta búsqueda, ubicados por categoría.</p></div><span class="service-map-count">${state.places.length} ${state.places.length === 1 ? "lugar" : "lugares"}</span></div>
+      <div class="services-map-toolbar">
+        <form class="services-map-search" data-service-map-search role="search"><label class="visually-hidden" for="services-map-search-input">Buscar zona o dirección</label><input id="services-map-search-input" name="ubicacion" type="search" autocomplete="off" placeholder="Buscar dirección, barrio o ciudad"><button class="button button-primary" type="submit">Buscar zona</button></form>
+        <button class="button button-cream" type="button" data-services-map-location>Mi ubicación</button>
+        <button class="button button-outline" type="button" data-services-map-fit>Ver todos</button>
+      </div>
+      <p class="services-map-feedback" data-service-map-feedback aria-live="polite">Explora el mapa, busca una zona o usa tu ubicación actual.</p>
+      <div id="services-directory-map" class="services-map-canvas" role="application" aria-label="Mapa interactivo de servicios registrados"></div>
+      <div class="services-map-legend" aria-label="Categorías del mapa">${legend}</div>
+      <p class="services-map-note">Toca un marcador para ver el lugar y cómo llegar. Mapa y búsqueda de direcciones: OpenStreetMap.</p>
+    </section>
+    <div class="service-list">${cards || emptyState({ icon: "mapPin", title: "Todavía no hay servicios", text: "Prueba otra localidad o agrega una veterinaria, tienda, plaza o lugar pet friendly para ayudar a tu zona." })}</div>`;
 }
 
 function ownView() {
@@ -807,14 +916,31 @@ function render(historyMode = "auto") {
     sobre: aboutView,
   };
   const page = (views[state.view] || homeView)();
+  disposeServiceMaps(content);
+  disposeControls(content);
+  liberarFotos(content);
   content.innerHTML = page;
-  content.querySelectorAll(".pet-card-media img").forEach((image) => {
-    const removeBrokenImage = () => {
-      if (!image.naturalWidth) image.remove();
-    };
-    image.addEventListener("error", removeBrokenImage, { once: true });
-    if (image.complete) removeBrokenImage();
-  });
+  enhanceControls(content);
+  cargarFotos(content);
+  if (state.view === "servicios")
+    mountServicesDirectoryMap(content, state.places);
+  const publishPhotoInput = content.querySelector(
+    'form[data-form="publish-notice"] input[name="fotosArchivos"]',
+  );
+  if (
+    publishPhotoInput &&
+    state.publishPhotoFiles.length > 0 &&
+    typeof DataTransfer === "function"
+  ) {
+    const transfer = new DataTransfer();
+    state.publishPhotoFiles.forEach((file) => transfer.items.add(file));
+    publishPhotoInput.files = transfer.files;
+    if (state.publishPhotosUploaded.length > 0) {
+      publishPhotoInput.form.dataset.fotosSubidas = JSON.stringify(
+        state.publishPhotosUploaded,
+      );
+    }
+  }
 }
 
 // Recarga de resultados públicos y privados después de cambios o acciones.
@@ -890,6 +1016,11 @@ function petDialog(pet = null) {
   if (pet?.especie && !speciesOptions.includes(pet.especie))
     speciesOptions.push(pet.especie);
   const colors = pet?.colores?.join(", ") || pet?.color || "";
+  const existingPhotos = Array.isArray(pet?.fotos)
+    ? pet.fotos
+        .map((foto) => photoUrl({ fotos: [foto] }))
+        .filter(Boolean)
+    : [];
   const vaccinated = pet?.salud?.vacunado;
   const sterilized = pet?.salud?.esterilizada;
   const additionalData = Boolean(
@@ -928,6 +1059,7 @@ function petDialog(pet = null) {
         <div class="field full"><label for="pet-health-notes">Notas de salud</label><textarea id="pet-health-notes" name="observacionesSalud" placeholder="Cuidados o antecedentes que quieras recordar">${esc(pet?.salud?.observaciones || "")}</textarea></div>
       </div></details>
       <div class="field full"><label for="pet-description">Descripción</label><textarea id="pet-description" name="descripcion" placeholder="Cuéntanos algo más sobre tu mascota">${value("descripcion")}</textarea></div>
+      <div class="field full pet-photo-field"><label for="pet-photos">Fotos de la mascota (opcional)</label><input id="pet-photos" name="fotosArchivos" type="file" accept="image/jpeg,image/png,image/webp" multiple><span class="help-text">JPG, PNG o WebP · hasta 5 fotos de 5 MB cada una.</span>${existingPhotos.length ? `<div class="pet-photo-preview" aria-label="Fotos guardadas">${existingPhotos.map((url, index) => `<img data-photo-url="${esc(url)}" alt="Foto ${index + 1} de ${esc(pet.nombre)}" loading="lazy">`).join("")}</div>` : ""}</div>
       <div class="field full"><label class="check-row"><input type="checkbox" name="publicar" ${pet?.publicar ? "checked" : ""}><span>Publicar el perfil para que aparezca en búsquedas. Los datos personales y de contacto siguen privados.</span></label></div>
     </div><p class="modal-error" data-error hidden></p><div class="form-footer"><button type="button" class="button button-cream" data-action="close-modal">Cancelar</button><button class="button button-primary" type="submit">${editing ? "Guardar cambios" : "Guardar perfil"} ${icon("arrowRight")}</button></div></form></div>`);
 }
@@ -977,6 +1109,12 @@ function petDetailView() {
   if (!pet)
     return `${sectionHeader("FICHA", "No encontramos esta mascota", "Vuelve a la búsqueda e inténtalo otra vez.", '<button class="button button-cream" data-action="back-from-pet">Volver</button>')}`;
   const isMine = state.ownPets.some((item) => item.id === pet.id);
+  const photos = Array.isArray(pet.fotos)
+    ? pet.fotos.map((foto) => photoUrl({ fotos: [foto] })).filter(Boolean)
+    : [];
+  const coverPhoto = photos[0]
+    ? `<img data-photo-url="${esc(photos[0])}" alt="Foto de ${esc(pet.nombre)}" loading="lazy">`
+    : `<div class="photo-empty">${icon("paw")}<span>Aún no hay fotos</span></div>`;
   const locationText =
     [
       pet.reportePerdida?.localidad,
@@ -1053,7 +1191,8 @@ function petDetailView() {
         : infoContent;
   return `<section class="pet-detail-page">
     <div class="pet-detail-topbar"><button class="icon-button" data-action="back-from-pet" aria-label="Volver">${icon("arrowRight")}</button><strong>Ficha de mascota</strong><button class="favorite-toggle ${state.favorites.has(pet.id) ? "is-saved" : ""}" data-action="toggle-favorite" data-id="${esc(pet.id)}" aria-label="${state.favorites.has(pet.id) ? "Quitar de guardados" : "Guardar mascota"}" aria-pressed="${state.favorites.has(pet.id)}">${icon("heart")}</button></div>
-    <div class="pet-detail-photo" aria-label="Espacio reservado para la foto de ${esc(pet.nombre)}"></div>
+    <div class="pet-detail-photo" aria-label="Foto de ${esc(pet.nombre)}">${coverPhoto}</div>
+    ${photos.length > 1 ? `<div class="pet-detail-gallery" aria-label="Más fotos de ${esc(pet.nombre)}">${photos.slice(1).map((url, index) => `<img data-photo-url="${esc(url)}" alt="Foto ${index + 2} de ${esc(pet.nombre)}" loading="lazy">`).join("")}</div>` : ""}
     <div class="pet-detail-heading"><div><h1>${esc(pet.nombre)}</h1><p>${[pet.raza, pet.sexo, pet.edad !== undefined ? `${pet.edad} ${Number(pet.edad) === 1 ? "año" : "años"}` : "", locationText].filter(Boolean).map(esc).join(" · ")}</p></div><span class="pet-status-label">${esc(statusLabel(pet.estado))}</span></div>
     <nav class="pet-detail-tabs" aria-label="Ficha de mascota">${tabs.map(([id, label]) => `<button data-action="select-pet-tab" data-state="${id}" class="${state.petTab === id ? "is-active" : ""}" aria-current="${state.petTab === id ? "page" : "false"}">${label}</button>`).join("")}</nav>
     <section class="pet-detail-content">${tabContent}</section>
@@ -1066,6 +1205,8 @@ function publishView() {
   const draft = state.publishDraft || {};
   const selectedPetId = draft.mascotaId || state.ownPets[0]?.id || "__new__";
   const isNew = selectedPetId === "__new__";
+  const selectedPet = state.ownPets.find((pet) => pet.id === selectedPetId);
+  const existingPhoto = photoUrl(selectedPet || {});
   const types = [
     ["perdida", "Perdida"],
     ["encontrada", "Encontrada"],
@@ -1084,7 +1225,12 @@ function publishView() {
     <form class="publish-form" data-form="publish-notice" data-created-pet-id="${esc(draft.createdPetId || "")}">
       <nav class="publish-tabs" aria-label="Tipo de aviso">${types.map(([value, label]) => `<button type="button" data-action="select-publish-type" data-state="${value}" class="${state.publishType === value ? "is-active" : ""}" aria-pressed="${state.publishType === value}">${label}</button>`).join("")}</nav>
       <div class="publish-form-layout">
-        <div class="publish-photo-slot" aria-label="Espacio para agregar una foto más adelante"><div class="photo-slot-mark">${icon("plus")}</div><strong>Foto opcional</strong><span>El espacio queda listo para agregarla después.</span></div>
+          <div class="publish-photo-slot">
+            ${existingPhoto ? `<img data-photo-url="${esc(existingPhoto)}" alt="Foto de ${esc(selectedPet.nombre)}" loading="lazy">` : `<div class="photo-slot-mark">${icon("plus")}</div>`}
+            <label for="publish-photos">Agregar fotos de la mascota</label>
+            <input id="publish-photos" name="fotosArchivos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+            <span>Opcional · JPG, PNG o WebP · hasta 5 fotos de 5 MB cada una.</span>
+          </div>
         <div class="publish-fields">
           <div class="field full"><label for="publish-pet">Mascota</label><select id="publish-pet" name="mascotaId">${state.ownPets.map((pet) => `<option value="${esc(pet.id)}" ${selectedPetId === pet.id ? "selected" : ""}>${esc(pet.nombre)} · ${esc(pet.especie)}</option>`).join("")}<option value="__new__" ${isNew ? "selected" : ""}>Registrar una mascota nueva</option></select></div>
           <div class="publish-new-pet-fields" data-new-pet-fields ${isNew ? "" : "hidden"}>
@@ -1121,12 +1267,14 @@ function serviceDialog(place = null) {
   const categories = [
     ["veterinaria", "Veterinaria"],
     ["guardia", "Guardia"],
-    ["tienda", "Tienda"],
+    ["tienda", "Tienda / pet shop"],
     ["peluqueria", "Peluquería"],
     ["refugio", "Refugio"],
     ["guarderia", "Guardería"],
-    ["escuela", "Escuela"],
+    ["escuela", "Escuela / adiestramiento"],
     ["perrera", "Perrera"],
+    ["parque", "Parque / plaza"],
+    ["pet_friendly", "Lugar pet friendly"],
     ["otro", "Otro"],
   ];
   const value = (field) => esc(place?.[field] || "");
@@ -1141,10 +1289,60 @@ function serviceDialog(place = null) {
       <div class="field"><label for="place-province">Provincia</label><input id="place-province" name="provincia" value="${value("provincia")}"></div>
       <div class="field"><label for="place-country">País *</label><input id="place-country" name="pais" required value="${value("pais")}" placeholder="Argentina"></div>
       <div class="field"><label for="place-email">Email público</label><input id="place-email" name="email" type="email" value="${value("email")}"></div>
-      <div class="field"><label for="place-lat">Latitud *</label><input id="place-lat" name="latitud" type="number" step="any" min="-90" max="90" required value="${esc(location.latitud ?? "")}" placeholder="-34.60"></div>
-      <div class="field"><label for="place-lng">Longitud *</label><input id="place-lng" name="longitud" type="number" step="any" min="-180" max="180" required value="${esc(location.longitud ?? "")}" placeholder="-58.38"></div>
+      <div class="field full place-location-picker">
+        <div class="place-picker-heading"><div><strong>Ubicación en el mapa *</strong><span>Busca la dirección o toca el mapa para colocar el pin.</span></div><button class="button button-cream button-small" type="button" data-place-locate>Ubicar dirección</button></div>
+        <p class="services-map-feedback" data-service-map-feedback aria-live="polite">${editing ? "Ubicación guardada. Toca o arrastra el pin para ajustarla." : "Completa la dirección y el mapa te ayuda a encontrar el lugar."}</p>
+        <div id="place-location-map" class="place-picker-map" role="application" aria-label="Elige la ubicación del servicio en el mapa"></div>
+        <input type="hidden" name="latitud" value="${esc(location.latitud ?? "")}">
+        <input type="hidden" name="longitud" value="${esc(location.longitud ?? "")}">
+      </div>
       <div class="field full"><label class="check-row"><input type="checkbox" name="guardia" ${place?.guardia ? "checked" : ""}><span>Este lugar tiene servicio de guardia</span></label></div>
     </div><p class="modal-error" data-error hidden></p><div class="form-footer"><button type="button" class="button button-cream" data-action="close-modal">Cancelar</button><button class="button button-primary" type="submit">${editing ? "Guardar cambios" : "Agregar punto"} ${icon("arrowRight")}</button></div></form></div>`);
+  mountServiceLocationPicker(modalContent);
+}
+
+// Abre la ficha comunitaria con calificaciones y opiniones del servicio.
+async function serviceReviewsDialog(placeId) {
+  const id = String(placeId);
+  const place = state.places.find((item) => String(item.id) === id);
+  if (!place) {
+    showNotice("No encontré ese servicio en la lista actual.", true);
+    return;
+  }
+  const categoryNames = {
+    veterinaria: "Veterinaria",
+    guardia: "Guardia",
+    tienda: "Tienda / pet shop",
+    peluqueria: "Peluquería",
+    refugio: "Refugio",
+    guarderia: "Guardería",
+    escuela: "Escuela / adiestramiento",
+    perrera: "Perrera",
+    parque: "Parque / plaza",
+    pet_friendly: "Lugar pet friendly",
+    otro: "Otro",
+  };
+  const reviewDate = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? ""
+      : new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" }).format(date);
+  };
+
+  openModal(`<div class="modal-inner service-reviews-dialog"><p class="modal-kicker">EXPERIENCIAS DE LA COMUNIDAD</p><h2>${esc(place.nombre)}</h2><p class="modal-intro">${esc(categoryNames[place.categoria] || "Servicio")} · ${esc([place.localidad, place.provincia, place.pais].filter(Boolean).join(", "))}</p><p class="service-reviews-loading" aria-live="polite">Cargando reseñas…</p></div>`);
+  try {
+    const result = await api(`/lugares/${encodeURIComponent(id)}/resenas`);
+    const ownReview = result.miResena;
+    const reviews = result.resenas
+      .map((review) => `<article class="service-review"><div class="service-review-heading"><strong>${esc(review.autor)}</strong><span class="service-review-stars" aria-label="${esc(review.puntuacion)} de 5 estrellas">${"★".repeat(review.puntuacion)}${"☆".repeat(5 - review.puntuacion)}</span></div><time datetime="${esc(review.creadoEn)}">${esc(reviewDate(review.creadoEn))}</time>${review.comentario ? `<p>${esc(review.comentario)}</p>` : "<p class=\"service-review-empty-comment\">Solo dejó su puntuación.</p>"}</article>`)
+      .join("");
+    const formMarkup = state.user
+      ? `<section class="service-review-form-section"><h3>${ownReview ? "Editar tu reseña" : "¿Cómo fue tu experiencia?"}</h3><p>Comparte qué servicio recibiste para ayudar a otras personas a decidir.</p><form data-form="${ownReview ? "update-service-review" : "create-service-review"}" data-id="${esc(id)}" ${ownReview ? `data-review-id="${esc(ownReview.id)}"` : ""}><div class="form-grid"><div class="field full"><label for="service-review-rating">Tu calificación</label><select id="service-review-rating" name="puntuacion" required><option value="" disabled ${ownReview ? "" : "selected"}>Elige de 1 a 5 estrellas</option>${[5, 4, 3, 2, 1].map((rating) => `<option value="${rating}" ${ownReview?.puntuacion === rating ? "selected" : ""}>${"★".repeat(rating)}${"☆".repeat(5 - rating)} · ${rating} ${rating === 1 ? "estrella" : "estrellas"}</option>`).join("")}</select></div><div class="field full"><label for="service-review-comment">Tu experiencia (opcional)</label><textarea id="service-review-comment" name="comentario" rows="3" maxlength="1200" placeholder="Cuéntanos cómo te atendieron, qué servicio recibiste o qué conviene saber…">${esc(ownReview?.comentario || "")}</textarea><span class="help-text">Máximo 1200 caracteres. Evita incluir datos personales.</span></div></div><p class="modal-error" data-error hidden></p><div class="form-footer"><button type="button" class="button button-cream" data-action="close-modal">Cerrar</button><button class="button button-primary" type="submit">${ownReview ? "Guardar cambios" : "Publicar reseña"} ${icon("arrowRight")}</button></div></form></section>`
+      : `<section class="service-review-login"><p>Inicia sesión para contar tu experiencia con este lugar.</p><button class="button button-primary" type="button" data-action="open-login">Ingresar y opinar</button></section>`;
+    openModal(`<div class="modal-inner service-reviews-dialog"><p class="modal-kicker">EXPERIENCIAS DE LA COMUNIDAD</p><h2>${esc(place.nombre)}</h2><p class="modal-intro">${esc(categoryNames[place.categoria] || "Servicio")} · ${esc([place.localidad, place.provincia, place.pais].filter(Boolean).join(", "))}</p><div class="service-reviews-summary"><strong>${result.cantidad ? esc(result.promedio) : "—"}</strong><span class="service-review-stars" aria-label="${result.cantidad ? `${esc(result.promedio)} de 5 estrellas` : "Aún sin calificaciones"}">${result.cantidad ? `${"★".repeat(Math.round(result.promedio))}${"☆".repeat(5 - Math.round(result.promedio))}` : "☆☆☆☆☆"}</span><span>${result.cantidad} ${result.cantidad === 1 ? "reseña" : "reseñas"}</span></div><div class="service-reviews-list">${reviews || `<p class="service-reviews-empty">Todavía no hay reseñas. Puedes ser la primera persona en compartir su experiencia.</p>`}</div>${formMarkup}</div>`);
+  } catch (error) {
+    openModal(`<div class="modal-inner service-reviews-dialog"><p class="modal-kicker">EXPERIENCIAS DE LA COMUNIDAD</p><h2>${esc(place.nombre)}</h2><p class="modal-intro">No se pudieron cargar las reseñas: ${esc(error.message)}</p><div class="form-footer"><button type="button" class="button button-primary" data-action="close-modal">Cerrar</button></div></div>`);
+  }
 }
 
 function shareDialog(petId) {
@@ -1188,6 +1386,112 @@ function formJson(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
+/** Valida formato, tamaño y cantidad antes de iniciar una carga de fotos. */
+function validarCargaFotos(form, mascotaId = null) {
+  const input = form.querySelector('input[name="fotosArchivos"]');
+  const archivos = Array.from(input?.files || []);
+  const tiposPermitidos = new Set(["image/jpeg", "image/png", "image/webp"]);
+  const maximoBytes = 5 * 1024 * 1024;
+  const maximoFotos = 5;
+
+  if (archivos.length > maximoFotos)
+    throw new Error(`Puedes seleccionar hasta ${maximoFotos} fotos por vez.`);
+  for (const archivo of archivos) {
+    if (!tiposPermitidos.has(archivo.type))
+      throw new Error("Las fotos deben estar en formato JPG, PNG o WebP.");
+    if (archivo.size > maximoBytes)
+      throw new Error("Cada foto debe pesar 5 MB o menos.");
+  }
+
+  let subidas = [];
+  try {
+    subidas = JSON.parse(form.dataset.fotosSubidas || "[]");
+  } catch {
+    subidas = [];
+  }
+  const subidasSet = new Set(Array.isArray(subidas) ? subidas : []);
+  const pendientes = mascotaId
+    ? archivos.filter(
+        (archivo) => !subidasSet.has(claveArchivoFoto(mascotaId, archivo)),
+      )
+    : archivos;
+  if (mascotaId) {
+    const mascota = buscarMascotaEnEstado(mascotaId);
+    const fotosExistentes = Array.isArray(mascota?.fotos)
+      ? mascota.fotos.length
+      : 0;
+    if (fotosExistentes + pendientes.length > maximoFotos) {
+      throw new Error(
+        `Esta mascota ya tiene ${fotosExistentes} fotos. El máximo es ${maximoFotos}.`,
+      );
+    }
+  }
+
+  return { input, archivos, pendientes, subidasSet };
+}
+
+/** Devuelve una firma local para no repetir una carga que quedó a medias. */
+function claveArchivoFoto(mascotaId, archivo) {
+  return `${mascotaId}:${archivo.name}:${archivo.size}:${archivo.lastModified}:${archivo.type}`;
+}
+
+/** Busca un perfil en las listas ya cargadas en la interfaz. */
+function buscarMascotaEnEstado(mascotaId) {
+  const listas = [
+    state.ownPets,
+    state.pets,
+    state.lost,
+    state.adoptions,
+    ...(state.searchResults || []),
+  ];
+  return listas.find((mascota) => mascota.id === mascotaId);
+}
+
+/** Actualiza en memoria las fotos nuevas devueltas por el backend. */
+function actualizarFotosEnEstado(mascotaId, fotos) {
+  const listas = [
+    state.ownPets,
+    state.pets,
+    state.lost,
+    state.adoptions,
+    ...(state.searchResults || []),
+  ];
+  for (const mascota of listas) {
+    if (mascota.id === mascotaId) mascota.fotos = fotos;
+  }
+  if (state.routePet?.id === mascotaId) state.routePet.fotos = fotos;
+}
+
+/** Envía cada archivo al endpoint protegido de fotos de la mascota. */
+async function subirFotosMascota(mascotaId, form) {
+  const { input, pendientes, subidasSet } = validarCargaFotos(form, mascotaId);
+  if (pendientes.length === 0) return;
+
+  for (const archivo of pendientes) {
+    const respuesta = await api(
+      `/mascotas/${encodeURIComponent(mascotaId)}/fotos`,
+      {
+        method: "POST",
+        headers: { "Content-Type": archivo.type },
+        body: archivo,
+      },
+    );
+    subidasSet.add(claveArchivoFoto(mascotaId, archivo));
+    form.dataset.fotosSubidas = JSON.stringify([...subidasSet]);
+    if (form.dataset.form === "publish-notice") {
+      state.publishPhotosUploaded = [...subidasSet];
+    }
+    actualizarFotosEnEstado(mascotaId, respuesta.fotos);
+  }
+
+  if (input) input.value = "";
+  delete form.dataset.fotosSubidas;
+  if (form.dataset.form === "publish-notice") {
+    state.publishPhotoFiles = [];
+    state.publishPhotosUploaded = [];
+  }
+}
+
 // Convierte los formularios en solicitudes de API y comunica el resultado.
 async function handleSubmit(form) {
   const type = form.dataset.form;
@@ -1219,7 +1523,12 @@ async function handleSubmit(form) {
     }
     if (type === "publish-notice") {
       const body = formJson(form);
-      let id = form.dataset.createdPetId || body.mascotaId;
+      delete body.fotosArchivos;
+      let id =
+        body.mascotaId === "__new__"
+          ? form.dataset.createdPetId
+          : body.mascotaId;
+      validarCargaFotos(form, id || null);
       if (!id || id === "__new__") {
         const profile = {
           nombre: body.nombre?.trim() || "Sin nombre",
@@ -1238,6 +1547,7 @@ async function handleSubmit(form) {
         form.dataset.createdPetId = id;
         state.publishDraft = { ...body, mascotaId: id, createdPetId: id };
       }
+      await subirFotosMascota(id, form);
       if (state.publishType === "perdida") {
         const report = {
           localidad: body.localidad,
@@ -1267,6 +1577,8 @@ async function handleSubmit(form) {
         state.searchFilters.buscar = {};
       }
       state.publishDraft = {};
+      state.publishPhotoFiles = [];
+      state.publishPhotosUploaded = [];
       render();
       showNotice(
         state.publishType === "perdida"
@@ -1278,6 +1590,10 @@ async function handleSubmit(form) {
       return;
     }
     if (type === "create-pet" || type === "update-pet") {
+      validarCargaFotos(
+        form,
+        type === "update-pet" ? form.dataset.id : null,
+      );
       const body = formJson(form);
       const existingPet =
         type === "update-pet"
@@ -1345,7 +1661,7 @@ async function handleSubmit(form) {
         delete result.identificacion;
       if (!Object.keys(result.comportamiento).length)
         delete result.comportamiento;
-      await api(
+      const mascotaGuardada = await api(
         type === "create-pet"
           ? "/mascotas"
           : `/mascotas/${encodeURIComponent(form.dataset.id)}`,
@@ -1354,6 +1670,15 @@ async function handleSubmit(form) {
           body: JSON.stringify(result),
         },
       );
+      if (type === "create-pet") {
+        form.dataset.form = "update-pet";
+        form.dataset.id = mascotaGuardada.id;
+        state.ownPets.unshift(mascotaGuardada);
+        const submitLabel = form.querySelector('button[type="submit"]');
+        if (submitLabel)
+          submitLabel.innerHTML = `Guardar cambios ${icon("arrowRight")}`;
+      }
+      await subirFotosMascota(mascotaGuardada.id, form);
       closeModal();
       if (!(await refreshAll())) return;
       state.view = "mias";
@@ -1404,8 +1729,30 @@ async function handleSubmit(form) {
     }
     if (type === "create-service" || type === "update-service") {
       const body = formJson(form);
-      body.latitud = Number(body.latitud);
-      body.longitud = Number(body.longitud);
+      const latitude = Number(form.elements.latitud.value);
+      const longitude = Number(form.elements.longitud.value);
+      if (
+        form.elements.latitud.value === "" ||
+        form.elements.longitud.value === "" ||
+        !Number.isFinite(latitude) ||
+        latitude < -90 ||
+        latitude > 90 ||
+        !Number.isFinite(longitude) ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        modalError(
+          form,
+          "Elige la ubicación del lugar: busca su dirección o toca el punto exacto en el mapa.",
+        );
+        form.querySelector(".place-location-picker")?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        return;
+      }
+      body.latitud = latitude;
+      body.longitud = longitude;
       body.guardia = form.elements.guardia.checked;
       const editing = type === "update-service";
       await api(
@@ -1424,6 +1771,34 @@ async function handleSubmit(form) {
           ? "Los datos del servicio fueron actualizados."
           : "Punto agregado al mapa como aporte comunitario.",
       );
+      return;
+    }
+    if (
+      type === "create-service-review" ||
+      type === "update-service-review"
+    ) {
+      const body = formJson(form);
+      const id = encodeURIComponent(form.dataset.id);
+      const editing = type === "update-service-review";
+      const reviewId = encodeURIComponent(form.dataset.reviewId || "");
+      await api(
+        editing
+          ? `/lugares/${id}/resenas/${reviewId}`
+          : `/lugares/${id}/resenas`,
+        { method: editing ? "PUT" : "POST", body: JSON.stringify(body) },
+      );
+      const updatedPlace = await api(`/lugares/${id}`);
+      const placeIndex = state.places.findIndex(
+        (place) => String(place.id) === String(form.dataset.id),
+      );
+      if (placeIndex >= 0) state.places[placeIndex] = updatedPlace;
+      const allPlaceIndex = state.allPlaces?.findIndex(
+        (place) => String(place.id) === String(form.dataset.id),
+      );
+      if (allPlaceIndex >= 0) state.allPlaces[allPlaceIndex] = updatedPlace;
+      render();
+      await serviceReviewsDialog(form.dataset.id);
+      showNotice(editing ? "Tu reseña fue actualizada." : "Gracias por compartir tu experiencia.");
       return;
     }
     if (type === "invite") {
@@ -1623,6 +1998,10 @@ async function handleAction(action, element) {
     if (place?.propio) serviceDialog(place);
     return;
   }
+  if (action === "open-service-reviews") {
+    await serviceReviewsDialog(id);
+    return;
+  }
   if (action === "delete-service") {
     const place = state.places.find((item) => String(item.id) === id);
     if (
@@ -1648,6 +2027,8 @@ async function handleAction(action, element) {
     }
     state.previousView = state.view;
     state.publishDraft = {};
+    state.publishPhotoFiles = [];
+    state.publishPhotosUploaded = [];
     state.publishType = "perdida";
     state.view = "publicar";
     render();
@@ -1655,19 +2036,27 @@ async function handleAction(action, element) {
     return;
   }
   if (action === "back-from-publish") {
+    state.publishPhotoFiles = [];
+    state.publishPhotosUploaded = [];
     state.view = state.previousView || "inicio";
     render("replace");
     return;
   }
   if (action === "select-publish-type") {
     const form = document.querySelector('form[data-form="publish-notice"]');
-    if (form)
+    if (form) {
+      const draft = formJson(form);
+      delete draft.fotosArchivos;
+      state.publishPhotoFiles = Array.from(
+        form.elements.fotosArchivos?.files || [],
+      );
       state.publishDraft = {
         ...state.publishDraft,
-        ...formJson(form),
+        ...draft,
         createdPetId:
           form.dataset.createdPetId || state.publishDraft.createdPetId || "",
       };
+    }
     state.publishType = element.dataset.state;
     render("replace");
     return;

@@ -9,6 +9,7 @@ coverage/
 # Bases locales y perfiles privados
 data/*.sqlite*
 data/mascotas-documentos.json
+data/uploads/
 
 # Archivos temporales y logs
 *.tmp

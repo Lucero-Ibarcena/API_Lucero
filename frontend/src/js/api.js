@@ -40,6 +40,39 @@ export async function api(path, options = {}) {
   return data;
 }
 
+/** Descarga una foto usando la sesión cuando el perfil todavía es privado. */
+export async function apiBlob(path) {
+  const headers = new Headers();
+  const token = sessionStorage.getItem(TOKEN_KEY);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  let response;
+  try {
+    response = await fetch(path, {
+      headers,
+      credentials: "same-origin",
+    });
+    if (response.status === 401 && token) {
+      response = await fetch(path, {
+        credentials: "same-origin",
+      });
+    }
+  } catch {
+    throw new ApiError(
+      "No pude conectar con la API. Confirma que el servidor esté iniciado.",
+      0,
+    );
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(
+      data.mensaje || "No se pudo cargar la foto de la mascota.",
+      response.status,
+    );
+  }
+  return response.blob();
+}
+
 /** Lee los datos de usuario guardados en el navegador. */
 export function getCachedUser() {
   try {
